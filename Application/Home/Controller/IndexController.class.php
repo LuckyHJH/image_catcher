@@ -2,7 +2,54 @@
 namespace Home\Controller;
 use Think\Controller;
 class IndexController extends Controller {
-    public function index(){
-        $this->show('<style type="text/css">*{ padding: 0; margin: 0; } div{ padding: 4px 48px;} body{ background: #fff; font-family: "微软雅黑"; color: #333;font-size:24px} h1{ font-size: 100px; font-weight: normal; margin-bottom: 12px; } p{ line-height: 1.8em; font-size: 36px } a,a:hover{color:blue;}</style><div style="padding: 24px 48px;"> <h1>:)</h1><p>欢迎使用 <b>ThinkPHP</b>！</p><br/>版本 V{$Think.version}</div><script type="text/javascript" src="http://ad.topthink.com/Public/static/client.js"></script><thinkad id="ad_55e75dfae343f5a1"></thinkad><script type="text/javascript" src="http://tajs.qq.com/stats?sId=9347272" charset="UTF-8"></script>','utf-8');
-    }
+	private $_imgFolder = '';
+
+	public function _initialize() {
+		//IMG_FOLDER是存放图片的目录，自己去Conf/config.php里配置，填写绝对路径，最后包含“/”，如“/root/images/”
+		$this->_imgFolder = C('IMG_FOLDER');
+	}
+
+	public function index(){
+		import('Org.Util.simple_html_dom');
+		try {
+			$result = $this->_bingCatcher();
+		} catch (\Exception $e) {
+			$this->show($e->getMessage());
+			exit;
+		}
+		$this->show(date('Y-m-d 星期w').'<br>'.$result['title'].'<br>'.
+			'<img src="index.php/Home/Index/image?file='.$result['file'].'" width="100%"/>');
+	}
+
+	//网页直接显示图片
+	public function image($file) {
+		$image_info = getimagesize($file);
+		if (empty(mime)) {$this->show('error');exit;}
+		header("Content-type:".$image_info['mime']);
+		echo file_get_contents($file);
+	}
+
+	private function _bingCatcher() {
+		//抓取数据
+		$url = 'http://cn.bing.com/';
+		$Html = file_get_html( $url );
+		if (empty($Html)) {
+			throw new \Exception('网络未连接');
+		}
+		$html = $Html->find('html',0)->innertext;
+		preg_match('/g_img={.*?"(http.*?)".*?}/i', $html, $match);
+		$image = $match[1];
+		$title = $Html->find('#sh_cp',0)->getAttribute('title');
+		$title = substr($title, 0, strpos($title, ' ('));
+
+		//保存文件
+		$ext = substr($image, strrpos($image, '.'));
+		$file = $this->_imgFolder.$title.$ext;
+		if (!file_exists($file)) {
+			if (!file_put_contents($file, file_get_contents($image))) {
+				throw new \Exception('无法写入文件');
+			}
+		}
+		return array('title'=>$title, 'file'=>$file);
+	}
 }
